@@ -5,9 +5,9 @@
 </template>
 
 <script>
-import {mapboxgl} from '../state'
+import {mapboxgl, setMap} from '../state'
 
-const TEST = [ -122.431297, 37.773972];
+const TEST = [ 5, 52];
 const center = TEST;
 
 
@@ -17,7 +17,7 @@ export default {
     return {mapboxgl}
   },
   data: () => ({}),
-  mounted() {
+  async mounted() {
     const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/streets-v11',
@@ -25,6 +25,7 @@ export default {
       zoom: 5,
       maxZoom: 20
     });
+    setMap(map);
 
   }
 
