@@ -1,24 +1,36 @@
 <template>
   <v-container>
+    <v-snackbar v-model="snackbar" color="primary" timeout="5000">
+      {{ snackText }}
+      <v-progress-linear
+          v-if="snackText === 'momentje'"
+          color="white accent-4"
+          indeterminate
+          rounded
+          height="6"
+      ></v-progress-linear>
+    </v-snackbar>
+
     <div id="menu">
       <v-card v-if="expand" class="right" max-width="300">
         <v-card-actions>
-          <v-chip v-if="wegInput" class="ma-2" :color="isAWeg() ? 'red' : 'yellow'" dark label :text-color="isAWeg() ? 'white': 'black'">{{ wegInput.toUpperCase() }}</v-chip>
-          <v-chip v-if="hm && hm.text" class="ma-2" color="primary" label text-color="white">{{ hm.text }}</v-chip>
-
+          <v-chip v-if="weg" class="ma-2" :color="isAWeg() ? 'red' : 'yellow'" dark label
+                  :text-color="isAWeg() ? 'white': 'black'">{{ weg.toUpperCase() }}
+          </v-chip>
+          <v-chip v-if="hm && hm.text" class="ma-2" color="primary" label text-color="white"><strong>{{
+              hm.text
+            }}</strong></v-chip>
           <v-spacer></v-spacer>
-          <v-btn text fab @click="expand = false">
+          <v-btn class="mt-n2" text fab @click="expand = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-actions>
         <v-card-actions>
-          <!--          <v-text-field v-model="weg" @blur="handleBlur" label="weg" class="mr-3" outlined color="green"></v-text-field>-->
-          <v-autocomplete v-model="weg" :items="wegen" :search-input.sync="wegInput"  @blur="handleBlur" label="weg" class="mr-3" outlined
-                          color="primary" no-data-text="Geen weg gevonden"></v-autocomplete>
-
-          <v-autocomplete v-model="hm" @change="selectHm" :search-input.sync="hmInput" :items="hms" item-text="text" label="hm paal"
-                          no-data-text="Toets een geldig hm paaltje in" color="green" return-object
-                          outlined></v-autocomplete>
+          <v-text-field v-model="weg" label="weg" class="mr-2" outlined color="primary"></v-text-field>
+          <v-text-field v-model="hm" color="primary" label="paal" outlined></v-text-field>
+        </v-card-actions>
+        <v-card-actions>
+          <v-btn @click="go" outlined block>GAAN</v-btn>
         </v-card-actions>
       </v-card>
 
@@ -36,16 +48,48 @@
 import {ref, watch} from '@vue/composition-api'
 import {fly} from "../state";
 
+const BASE = `https://geodata.nationaalgeoregister.nl/locatieserver/v3/free?q=type:hectometerpaal&fq=`
+
 export default {
   setup() {
     const expand = ref(false);
-    const weg = ref('');
+    const snackbar = ref(false);
+    const snackText = ref('');
+    const weg = ref('A4');
     const hms = ref([]);
     const wegen = ref([]);
-    const hm = ref("");
+    const hm = ref("44.0");
     const wegInput = ref("");
     const hmInput = ref("");
     let tmpWeg;
+
+    const go = async () => {
+      const SEARCH = `${weg.value}-${hm.value.replace(",", "").replace(".", "")}`
+      console.log(SEARCH);
+      snackbar.value = true;
+      snackText.value = "momentje"
+      try {
+        const OUT = await fetch(`${BASE}"${SEARCH}"`);
+        const HMS = await OUT.json();
+        console.log(HMS);
+        snackbar.value = true;
+        if (HMS.response.numFound === 0) {
+          snackText.value = "Oops, niets gevonden."
+        } else {
+          if (HMS.response.numFound === 1) {
+            snackText.value = `Eén paal gevonden`
+          } else {
+            snackText.value = `${HMS.response.numFound} resulaten`
+          }
+          const COORDINATE = HMS.response.docs[0].centroide_ll.replace("POINT(", "").replace(")", "").split(" ");
+          console.log(COORDINATE);
+          fly(COORDINATE)
+        }
+        hms.value = HMS.hms;
+      } catch (e) {
+        console.log("oops ", e);
+      }
+    }
 
     const getRoads = async () => {
       const OUT = await fetch(`output/roads.json`);
@@ -55,20 +99,20 @@ export default {
     }
 
     const isAWeg = () => {
-      return wegInput.value.toUpperCase().startsWith('A')
+      return weg.value.toUpperCase().startsWith('A')
     }
 
-    watch(wegInput, (wegInput, tmp) => {
+    watch(weg, (weg, tmp) => {
       hmInput.value = '';
       tmpWeg = wegInput;
-    })
-
+    });
 
     const handleBlur = async (test) => {
       console.log(test);
       console.log(" >>>> weg.value ", tmpWeg);
 
-      // weg.value = weg.value.toUpperCase();
+      weg.value = weg.value.toUpperCase();
+
       try {
         console.log("weg.value ", weg.value);
         const OUT = await fetch(`output/${weg.value}.json`);
@@ -78,6 +122,7 @@ export default {
       } catch (e) {
         console.log("oops ", e);
       }
+
     }
 
     const selectHm = () => {
@@ -88,7 +133,7 @@ export default {
 
     getRoads()
 
-    return {expand, hms, hm, hmInput, weg, wegen, wegInput, handleBlur, selectHm, isAWeg}
+    return {expand, hms, hm, hmInput, weg, wegen, wegInput, snackbar, snackText, handleBlur, selectHm, isAWeg, go}
   },
   computed: {},
 }
